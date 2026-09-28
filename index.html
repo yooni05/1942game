@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10초 타이머</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+        }
+        .mono-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.05s linear;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        .glow-effect {
+            box-shadow: 0 0 35px rgba(59, 130, 246, 0.25);
+        }
+        .btn-press {
+            transition: all 0.15s ease;
+        }
+        .btn-press:active {
+            transform: scale(0.95);
+        }
+        canvas#confettiCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="text-slate-100 flex items-center justify-center p-4 relative overflow-hidden select-none">
+
+    <canvas id="confettiCanvas"></canvas>
+
+    <main class="w-full max-w-md bg-slate-800/80 backdrop-blur-xl border border-slate-700/60 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col items-center relative z-10 glow-effect">
+        
+        <!-- Header Controls -->
+        <div class="w-full flex justify-between items-center mb-6">
+            <h1 class="text-xl font-bold tracking-wide text-slate-200 flex items-center gap-2">
+                <i class="fa-solid fa-stopwatch text-blue-500"></i>
+                <span>타이머</span>
+            </h1>
+            <div class="flex items-center gap-2">
+                <!-- Sound Toggle -->
+                <button id="soundBtn" class="w-10 h-10 rounded-full bg-slate-700/60 hover:bg-slate-700 border border-slate-600/50 flex items-center justify-center text-slate-300 hover:text-white transition-colors" title="소리 토글">
+                    <i class="fa-solid fa-volume-high" id="soundIcon"></i>
+                </button>
+                <!-- Repeat Toggle -->
+                <button id="repeatBtn" class="w-10 h-10 rounded-full bg-slate-700/60 hover:bg-slate-700 border border-slate-600/50 flex items-center justify-center text-slate-400 hover:text-white transition-colors" title="자동 반복">
+                    <i class="fa-solid fa-rotate-right" id="repeatIcon"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Timer Circular Display -->
+        <div class="relative w-64 h-64 my-2 flex items-center justify-center">
+            <svg class="w-full h-full" viewBox="0 0 200 200">
+                <!-- Background Circle -->
+                <circle
+                    class="text-slate-700/50"
+                    stroke-width="10"
+                    stroke="currentColor"
+                    fill="transparent"
+                    r="85"
+                    cx="100"
+                    cy="100"
+                />
+                <!-- Progress Circle -->
+                <circle
+                    id="progressRing"
+                    class="progress-ring-circle text-blue-500"
+                    stroke-width="10"
+                    stroke-linecap="round"
+                    stroke="currentColor"
+                    fill="transparent"
+                    r="85"
+                    cx="100"
+                    cy="100"
+                />
+            </svg>
+
+            <!-- Time Text Overlay -->
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <div id="timeDisplay" class="mono-font text-5xl sm:text-6xl font-extrabold tracking-tight text-white drop-shadow-md">
+                    10.0
+                </div>
+                <div id="statusLabel" class="text-xs uppercase font-semibold text-slate-400 mt-2 tracking-widest">
+                    READY
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Presets -->
+        <div class="flex items-center justify-center gap-2 my-4">
+            <button class="preset-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-700/40 hover:bg-slate-700 text-slate-300 border border-slate-600/40 transition-colors" data-time="3">3초</button>
+            <button class="preset-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600/30 text-blue-300 border border-blue-500/50 transition-colors" data-time="10">10초</button>
+            <button class="preset-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-700/40 hover:bg-slate-700 text-slate-300 border border-slate-600/40 transition-colors" data-time="30">30초</button>
+            <button class="preset-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-700/40 hover:bg-slate-700 text-slate-300 border border-slate-600/40 transition-colors" data-time="60">60초</button>
+        </div>
+
+        <!-- Main Action Buttons -->
+        <div class="w-full flex items-center justify-center gap-4 mt-2">
+            <!-- Reset Button -->
+            <button id="resetBtn" class="btn-press flex-1 py-3.5 px-4 rounded-2xl bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold flex items-center justify-center gap-2 shadow-lg transition-all">
+                <i class="fa-solid fa-arrow-rotate-left"></i>
+                <span>리셋</span>
+            </button>
+
+            <!-- Start / Pause Button -->
+            <button id="startBtn" class="btn-press flex-2 py-3.5 px-8 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-lg flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 transition-all">
+                <i class="fa-solid fa-play" id="startIcon"></i>
+                <span id="startText">시작</span>
+            </button>
+        </div>
+
+        <!-- Instructions Footer -->
+        <p class="text-xs text-slate-400 mt-6 text-center">
+            <span class="bg-slate-700/60 px-1.5 py-0.5 rounded text-slate-300">Space</span> 키로 시작/일시정지 | <span class="bg-slate-700/60 px-1.5 py-0.5 rounded text-slate-300">R</span> 키로 초기화
+        </p>
+    </main>
+
+    <!-- JavaScript Logic -->
+    <script>
+        let totalTime = 10; // Default 10 seconds
+        let remainingTime = 10;
+        let isRunning = false;
+        let animationFrameId = null;
+        let lastTimestamp = null;
+        let soundEnabled = true;
+        let autoRepeat = false;
+        let lastSecondBeep = -1;
+
+        // UI Element References
+        const timeDisplay = document.getElementById('timeDisplay');
+        const statusLabel = document.getElementById('statusLabel');
+        const startBtn = document.getElementById('startBtn');
+        const startIcon = document.getElementById('startIcon');
+        const startText = document.getElementById('startText');
+        const resetBtn = document.getElementById('resetBtn');
+        const progressRing = document.getElementById('progressRing');
+        const soundBtn = document.getElementById('soundBtn');
+        const soundIcon = document.getElementById('soundIcon');
+        const repeatBtn = document.getElementById('repeatBtn');
+        const repeatIcon = document.getElementById('repeatIcon');
+        const presetBtns = document.querySelectorAll('.preset-btn');
+
+        // Circular Progress Ring Calculation
+        const radius = progressRing.r.baseVal.value;
+        const circumference = 2 * Math.PI * radius;
+        progressRing.style.strokeDasharray = `${circumference} ${circumference}`;
+
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Web Audio synthesized sounds (no external file reliance)
+        function playTickSound() {
+            if (!soundEnabled) return;
+            initAudio();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.05);
+
+            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        function playFinishSound() {
+            if (!soundEnabled) return;
+            initAudio();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const now = audioCtx.currentTime;
+            
+            // Chord triad for timer completion
+            [523.25, 659.25, 783.99, 1046.50].forEach((freq, index) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now + index * 0.08);
+
+                gain.gain.setValueAtTime(0.15, now + index * 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + index * 0.08 + 0.6);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now + index * 0.08);
+                osc.stop(now + index * 0.08 + 0.6);
+            });
+        }
+
+        function setProgress(percent) {
+            const offset = circumference - (percent / 100) * circumference;
+            progressRing.style.strokeDashoffset = offset;
+        }
+
+        function updateDisplay() {
+            timeDisplay.textContent = Math.max(0, remainingTime).toFixed(1);
+            const percentage = (remainingTime / totalTime) * 100;
+            setProgress(percentage);
+
+            // Change color as timer approaches 0
+            if (remainingTime <= 3 && remainingTime > 0) {
+                progressRing.classList.remove('text-blue-500');
+                progressRing.classList.add('text-amber-500');
+            } else if (remainingTime <= 0) {
+                progressRing.classList.remove('text-blue-500', 'text-amber-500');
+                progressRing.classList.add('text-emerald-500');
+            } else {
+                progressRing.classList.remove('text-amber-500', 'text-emerald-500');
+                progressRing.classList.add('text-blue-500');
+            }
+        }
+
+        function tick(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const delta = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+
+            remainingTime -= delta;
+
+            // Trigger tick sound every second threshold
+            const currentSecond = Math.ceil(remainingTime);
+            if (currentSecond !== lastSecondBeep && currentSecond > 0 && currentSecond < totalTime) {
+                playTickSound();
+                lastSecondBeep = currentSecond;
+            }
+
+            if (remainingTime <= 0) {
+                remainingTime = 0;
+                updateDisplay();
+                onTimerComplete();
+                return;
+            }
+
+            updateDisplay();
+            if (isRunning) {
+                animationFrameId = requestAnimationFrame(tick);
+            }
+        }
+
+        function startTimer() {
+            if (isRunning) return;
+            initAudio();
+            isRunning = true;
+            lastTimestamp = null;
+            lastSecondBeep = Math.ceil(remainingTime);
+
+            startIcon.className = "fa-solid fa-pause";
+            startText.textContent = "일시정지";
+            startBtn.classList.remove('from-blue-600', 'to-indigo-600');
+            startBtn.classList.add('from-amber-600', 'to-orange-600');
+            statusLabel.textContent = "RUNNING";
+
+            animationFrameId = requestAnimationFrame(tick);
+        }
+
+        function pauseTimer() {
+            if (!isRunning) return;
+            isRunning = false;
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+            startIcon.className = "fa-solid fa-play";
+            startText.textContent = "계속";
+            startBtn.classList.remove('from-amber-600', 'to-orange-600');
+            startBtn.classList.add('from-blue-600', 'to-indigo-600');
+            statusLabel.textContent = "PAUSED";
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            remainingTime = totalTime;
+            lastSecondBeep = -1;
+            startText.textContent = "시작";
+            statusLabel.textContent = "READY";
+            updateDisplay();
+        }
+
+        function onTimerComplete() {
+            pauseTimer();
+            statusLabel.textContent = "FINISHED";
+            startText.textContent = "재시작";
+            playFinishSound();
+            triggerConfetti();
+
+            // Vibrate mobile device if supported
+            if ("vibrate" in navigator) {
+                navigator.vibrate([200, 100, 200]);
+            }
+
+            if (autoRepeat) {
+                setTimeout(() => {
+                    resetTimer();
+                    startTimer();
+                }, 1000);
+            }
+        }
+
+        const canvas = document.getElementById('confettiCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function triggerConfetti() {
+            particles = [];
+            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'];
+            
+            for (let i = 0; i < 90; i++) {
+                particles.push({
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 16,
+                    vy: (Math.random() - 0.8) * 16,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    size: Math.random() * 8 + 4,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 0.2,
+                    opacity: 1
+                });
+            }
+            animateConfetti();
+        }
+
+        function animateConfetti() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let active = false;
+
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.3; // Gravity
+                p.rotation += p.rotationSpeed;
+                p.opacity -= 0.015;
+
+                if (p.opacity > 0) {
+                    active = true;
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.rotation);
+                    ctx.globalAlpha = p.opacity;
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    ctx.restore();
+                }
+            });
+
+            if (active) {
+                requestAnimationFrame(animateConfetti);
+            }
+        }
+
+        startBtn.addEventListener('click', () => {
+            if (isRunning) {
+                pauseTimer();
+            } else {
+                if (remainingTime <= 0) remainingTime = totalTime;
+                startTimer();
+            }
+        });
+
+        resetBtn.addEventListener('click', resetTimer);
+
+        // Sound Toggle Button
+        soundBtn.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            soundIcon.className = soundEnabled ? "fa-solid fa-volume-high" : "fa-solid fa-volume-xmark";
+            soundBtn.classList.toggle('text-slate-500', !soundEnabled);
+            soundBtn.classList.toggle('text-slate-300', soundEnabled);
+        });
+
+        // Repeat Toggle Button
+        repeatBtn.addEventListener('click', () => {
+            autoRepeat = !autoRepeat;
+            repeatIcon.classList.toggle('text-blue-400', autoRepeat);
+            repeatBtn.classList.toggle('border-blue-500/50', autoRepeat);
+        });
+
+        // Preset Time Buttons
+        presetBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const newTime = parseInt(btn.dataset.time, 10);
+                totalTime = newTime;
+                
+                // Update preset buttons style
+                presetBtns.forEach(b => {
+                    b.className = "preset-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-700/40 hover:bg-slate-700 text-slate-300 border border-slate-600/40 transition-colors";
+                });
+                btn.className = "preset-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600/30 text-blue-300 border border-blue-500/50 transition-colors";
+
+                resetTimer();
+            });
+        });
+
+        // Keyboard Shortcuts
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                startBtn.click();
+            } else if (e.code === 'KeyR') {
+                resetTimer();
+            }
+        });
+
+        // Initial render setup
+        updateDisplay();
+    </script>
+</body>
+</html>
